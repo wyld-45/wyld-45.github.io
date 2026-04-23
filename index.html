@@ -10,6 +10,7 @@
       height: 100vh;
       overflow: hidden;
       font-family: Arial, sans-serif;
+      user-select: none;
     }
 
     .desktop {
@@ -21,6 +22,7 @@
       flex-wrap: wrap;
       align-content: flex-start;
       gap: 8px;
+      position: relative;
     }
 
     .icon {
@@ -32,8 +34,11 @@
       cursor: pointer;
       padding: 6px;
       border-radius: 2px;
+      position: relative;
+      z-index: 1;
     }
     .icon:hover { background: rgba(255,255,255,0.2); }
+    .icon.selected { background: rgba(0,0,128,0.4); outline: 1px dotted white; }
 
     .icon-img { font-size: 36px; }
 
@@ -75,14 +80,25 @@
       border-left: 1px solid #444;
       border-right: 1px solid white;
       border-bottom: 1px solid white;
-      padding: 2px 8px;
+      padding: 2px 10px;
       font-size: 12px;
+      text-align: right;
+      line-height: 1.4;
+    }
+
+    #marquee {
+      position: absolute;
+      border: 1px dotted white;
+      background: rgba(0, 0, 255, 0.15);
+      pointer-events: none;
+      display: none;
+      z-index: 999;
     }
   </style>
 </head>
 <body>
 
-  <div class="desktop">
+  <div class="desktop" id="desktop">
     <div class="icon">
       <div class="icon-img">🖥️</div>
       <div class="icon-label">About Me</div>
@@ -103,8 +119,10 @@
 
   <div class="taskbar">
     <button class="start-btn">⊞ Start</button>
-    <div class="clock" id="clock">12:00 PM</div>
+    <div class="clock" id="clock"></div>
   </div>
+
+  <div id="marquee"></div>
 
   <script>
     function updateClock() {
@@ -112,11 +130,56 @@
       let h = now.getHours(), m = now.getMinutes();
       const ampm = h >= 12 ? 'PM' : 'AM';
       h = h % 12 || 12;
-      document.getElementById('clock').textContent =
-        h + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+      const time = h + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const date = days[now.getDay()] + ' ' + months[now.getMonth()] + ' ' + now.getDate();
+      document.getElementById('clock').innerHTML = time + '<br>' + date;
     }
     updateClock();
     setInterval(updateClock, 10000);
+
+    const desktop = document.getElementById('desktop');
+    const marquee = document.getElementById('marquee');
+    let startX, startY, dragging = false;
+
+    desktop.addEventListener('mousedown', function(e) {
+      if (e.target.closest('.icon')) return;
+      dragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      marquee.style.display = 'block';
+      marquee.style.left = startX + 'px';
+      marquee.style.top = startY + 'px';
+      marquee.style.width = '0px';
+      marquee.style.height = '0px';
+      document.querySelectorAll('.icon').forEach(i => i.classList.remove('selected'));
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      const x = Math.min(e.clientX, startX);
+      const y = Math.min(e.clientY, startY);
+      const w = Math.abs(e.clientX - startX);
+      const h = Math.abs(e.clientY - startY);
+      marquee.style.left = x + 'px';
+      marquee.style.top = y + 'px';
+      marquee.style.width = w + 'px';
+      marquee.style.height = h + 'px';
+
+      const mRect = { left: x, top: y, right: x + w, bottom: y + h };
+      document.querySelectorAll('.icon').forEach(icon => {
+        const r = icon.getBoundingClientRect();
+        const overlap = r.left < mRect.right && r.right > mRect.left &&
+                        r.top < mRect.bottom && r.bottom > mRect.top;
+        icon.classList.toggle('selected', overlap);
+      });
+    });
+
+    document.addEventListener('mouseup', function() {
+      dragging = false;
+      marquee.style.display = 'none';
+    });
   </script>
 
 </body>
